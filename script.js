@@ -84,7 +84,6 @@ async function saveLead(payload) {
     method: "POST",
     headers: {
       apikey: CONFIG.supabasePublishableKey,
-      Authorization: `Bearer ${CONFIG.supabasePublishableKey}`,
       "Content-Type": "application/json",
       Prefer: "return=minimal",
     },
@@ -100,7 +99,8 @@ async function saveLead(payload) {
     return { status: "duplicate" };
   }
 
-  throw new Error(details.message || `Falha ao cadastrar (${response.status})`);
+  const backendMessage = details.message || details.error_description || details.hint || "Erro desconhecido";
+  throw new Error(`Supabase ${response.status}: ${backendMessage}`);
 }
 
 form.addEventListener("submit", async (event) => {
@@ -124,7 +124,8 @@ form.addEventListener("submit", async (event) => {
     showSuccess();
   } catch (error) {
     console.error(error);
-    formMessage.textContent = "Não foi possível concluir o cadastro agora. Verifique sua conexão e tente novamente.";
+    const technicalMessage = error instanceof Error ? error.message : String(error);
+    formMessage.textContent = `Não foi possível concluir o cadastro. ${technicalMessage}`;
     formMessage.className = "form-message error";
   } finally {
     setLoading(false);
