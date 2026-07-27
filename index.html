@@ -65,14 +65,11 @@
             <h2 id="form-title">Baixe seu e-book gratuito</h2>
             <p>Informe seu nome e e-mail. Você receberá o link do e-book e também poderá baixar nesta página.</p>
 
-            <form id="lead-form" action="https://formsubmit.co/alersonbarbosa@gmail.com" method="POST" accept-charset="UTF-8">
-              <input type="hidden" name="_subject" value="Novo download — Expansão da Produtividade" />
-              <input type="hidden" name="_template" value="box" />
-              <input type="hidden" name="_next" value="https://alerson20.github.io/expansao-produtividade/?sucesso=1" />
-              <input type="hidden" name="_url" value="https://alerson20.github.io/expansao-produtividade/" />
-              <input type="hidden" name="_autoresponse" value="Olá! Obrigado por solicitar o e-book Expansão da Produtividade. Baixe seu exemplar aqui: https://alerson20.github.io/expansao-produtividade/assets/Expansao_da_Produtividade.pdf" />
-              <input type="hidden" name="material" value="E-book Expansão da Produtividade — 1ª edição 2026" />
-              <input type="text" name="_honey" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;opacity:0;pointer-events:none" />
+            <form id="lead-form" method="POST" target="email-submit-target" accept-charset="UTF-8">
+              <input type="hidden" name="source" value="Landing page Expansão da Produtividade" />
+              <input type="hidden" name="ebook_url" value="https://alerson20.github.io/expansao-produtividade/assets/Expansao_da_Produtividade.pdf" />
+              <input type="hidden" name="submitted_at" id="submitted-at" value="" />
+              <input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;opacity:0;pointer-events:none" />
               <div class="field">
                 <label for="name">Seu nome</label>
                 <input id="name" name="name" type="text" autocomplete="name" placeholder="Como podemos te chamar?" minlength="2" maxlength="100" required />
@@ -100,6 +97,7 @@
 
               <p class="privacy-note"><span aria-hidden="true">◇</span> Seus dados são usados apenas conforme informado nesta página.</p>
             </form>
+            <iframe name="email-submit-target" id="email-submit-target" title="Envio do formulário" hidden></iframe>
           </div>
 
           <div class="success-state" id="success-state" hidden>
@@ -303,6 +301,6 @@
     </div>
   </dialog>
 
-  <script src="script.js?v=3.0.0" defer></script>
+  <script src="script.js?v=4.0.0" defer></script>
 </body>
 </html>

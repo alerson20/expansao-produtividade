@@ -1,0 +1,68 @@
+CONFIGURAÇÃO DO ENVIO DE E-MAIL COM GOOGLE APPS SCRIPT
+======================================================
+
+Esta versão NÃO usa FormSubmit.
+O Google Apps Script envia o e-book pelo seu próprio Gmail e registra os contatos em uma planilha.
+
+ETAPA 1 — CRIAR A PLANILHA
+1. Acesse https://sheets.google.com com alersonbarbosa@gmail.com.
+2. Crie uma planilha em branco.
+3. Dê o nome: Leads - Expansão da Produtividade.
+4. Na planilha, clique em Extensões > Apps Script.
+
+ETAPA 2 — COLAR O CÓDIGO
+1. Apague o conteúdo do arquivo Code.gs exibido no editor.
+2. Abra, nesta pasta do projeto, o arquivo apps-script/Code.gs.
+3. Copie tudo e cole no editor do Apps Script.
+4. No editor do Apps Script, abra Configurações do projeto.
+5. Marque a opção para mostrar o arquivo de manifesto appsscript.json.
+6. Volte ao editor, abra appsscript.json e substitua pelo conteúdo do arquivo apps-script/appsscript.json desta pasta.
+7. Clique em Salvar.
+
+ETAPA 3 — AUTORIZAR O ENVIO
+1. No seletor de função, escolha doGet.
+2. Clique em Executar.
+3. Escolha a conta alersonbarbosa@gmail.com.
+4. Caso apareça “Google não verificou este app”, clique em Avançado e depois em “Ir para ... (não seguro)”.
+5. Autorize o acesso solicitado.
+
+ETAPA 4 — PUBLICAR COMO APP DA WEB
+1. Clique em Implantar > Nova implantação.
+2. Em “Selecionar tipo”, escolha App da Web.
+3. Descrição: Envio do e-book.
+4. Executar como: Eu.
+5. Quem pode acessar: Qualquer pessoa.
+6. Clique em Implantar.
+7. Copie a URL que termina em /exec.
+
+ETAPA 5 — COLOCAR A URL NO SITE
+1. Abra o arquivo script.js desta pasta.
+2. Na primeira linha, encontre:
+   const APPS_SCRIPT_URL = "COLE_AQUI_A_URL_DO_GOOGLE_APPS_SCRIPT";
+3. Substitua somente o texto entre aspas pela URL /exec copiada.
+4. Salve o arquivo.
+
+ETAPA 6 — TESTAR LOCALMENTE
+No PowerShell, dentro da pasta:
+
+npm.cmd install
+npm.cmd run dev
+
+Abra o endereço informado pelo Vite, cadastre um e-mail e confira:
+- mensagem de sucesso na página;
+- e-mail recebido pelo visitante;
+- notificação recebida em alersonbarbosa@gmail.com;
+- nova linha na aba Leads da planilha.
+
+ETAPA 7 — PUBLICAR NO GITHUB
+
+git add .
+git commit -m "Troca FormSubmit por envio via Google Apps Script"
+git push
+
+Depois aguarde o GitHub Actions ficar verde e pressione Ctrl + F5 no site.
+
+OBSERVAÇÕES
+- Cada cadastro envia 2 e-mails: um para o visitante e um aviso para o proprietário.
+- Não apague a implantação do Apps Script.
+- Se editar o Code.gs depois, use Implantar > Gerenciar implantações > Editar > Nova versão > Implantar.

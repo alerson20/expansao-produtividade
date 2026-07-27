@@ -1,24 +1,14 @@
-COMANDOS PARA ATUALIZAR O SITE NO GITHUB
+COMANDOS PARA PUBLICAR A NOVA VERSÃO
+====================================
 
-1. Copie todos os arquivos desta pasta para:
-   C:\Users\Alerson\Desktop\landing_ebook_expansao
-
-2. Confirme a substituição dos arquivos antigos.
-
-3. Abra o PowerShell nessa pasta e execute, um por vez:
+Abra o PowerShell na pasta do projeto e execute:
 
 npm.cmd install
 npm.cmd run build
 git add .
-git commit -m "Corrige formulario, sucesso e envio do ebook por email"
+git commit -m "Troca FormSubmit por envio via Google Apps Script"
 git push
 
-4. Acompanhe em:
-   GitHub > expansao-produtividade > Actions
-
-5. Quando ficar verde, abra:
-   https://alerson20.github.io/expansao-produtividade/
-
-6. Pressione Ctrl + F5 ou use uma janela anônima.
-
-7. Faça a ativação descrita no arquivo ATIVAR-FORMULARIO-EMAIL.txt.
+Depois abra o GitHub > Actions e aguarde a publicação ficar verde.
+Site: https://alerson20.github.io/expansao-produtividade/
+Pressione Ctrl + F5 para limpar o cache.
