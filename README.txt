@@ -1,21 +1,20 @@
-LANDING PAGE — EXPANSÃO DA PRODUTIVIDADE
+EXPANSÃO DA PRODUTIVIDADE — LANDING PAGE COMPLETA
+VERSÃO 3.0 — FORMULÁRIO E ENVIO POR E-MAIL
 
-Arquivos principais:
-- index.html: estrutura e conteúdo da página
-- styles.css: identidade visual e responsividade
-- script.js: validação, cadastro de leads e liberação do download
-- assets/capa-expansao-da-produtividade.png: capa oficial
-- assets/Expansao_da_Produtividade.pdf: e-book entregue após cadastro
+FUNCIONAMENTO
+- Formulário de nome, e-mail e consentimento.
+- Envio tradicional pelo FormSubmit, compatível com GitHub Pages.
+- Notificação de cada novo cadastro enviada para alersonbarbosa@gmail.com.
+- Resposta automática para o visitante com o link do PDF.
+- Redirecionamento de volta ao site com mensagem de sucesso.
+- Botão de download imediato na tela de sucesso.
+- Capa e PDF oficiais incluídos.
+- Layout responsivo para celular, tablet e computador.
+- Vite e GitHub Actions já configurados.
 
-CAPTAÇÃO DE LEADS
-A página está configurada para usar a mesma instância Supabase criada no projeto Lovable.
-O formulário envia nome, e-mail e consentimento para a tabela `leads`.
-A política RLS deve permitir INSERT anônimo com consent=true e impedir leitura pública.
+ATENÇÃO
+Antes de receber cadastros e enviar respostas automáticas, é obrigatório confirmar o primeiro e-mail de ativação enviado pelo FormSubmit para alersonbarbosa@gmail.com.
+Leia ATIVAR-FORMULARIO-EMAIL.txt.
 
-PUBLICAÇÃO
-Envie todos os arquivos mantendo a mesma estrutura de pastas para Netlify, Vercel,
-Cloudflare Pages, GitHub Pages ou hospedagem convencional.
-
-TESTE LOCAL
-Abra index.html diretamente ou execute um servidor local na pasta, por exemplo:
-python -m http.server 8080
+SITE
+https://alerson20.github.io/expansao-produtividade/

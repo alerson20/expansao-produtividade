@@ -1,9 +1,3 @@
-const CONFIG = Object.freeze({
-  supabaseUrl: "https://stnkonqgjvdtspmrjutq.supabase.co",
-  supabasePublishableKey: "sb_publishable_fQ4wv0dwMaudLPAlNJ0YLg_0EYV9EjD",
-  table: "leads",
-});
-
 const form = document.querySelector("#lead-form");
 const nameInput = document.querySelector("#name");
 const emailInput = document.querySelector("#email");
@@ -15,152 +9,117 @@ const successState = document.querySelector("#success-state");
 const firstName = document.querySelector("#first-name");
 const restartButton = document.querySelector("#restart-form");
 
-const errorElements = {
-  name: document.querySelector("#name-error"),
-  email: document.querySelector("#email-error"),
-  consent: document.querySelector("#consent-error"),
-};
-
 function normalizeEmail(value) {
   return value.trim().toLowerCase();
 }
 
-function isValidEmail(value) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i.test(value);
-}
-
-function clearErrors() {
-  Object.values(errorElements).forEach((element) => { element.textContent = ""; });
-  [nameInput, emailInput, consentInput].forEach((element) => element.removeAttribute("aria-invalid"));
-  formMessage.textContent = "";
-  formMessage.className = "form-message";
-}
-
-function setFieldError(field, message) {
-  const input = field === "name" ? nameInput : field === "email" ? emailInput : consentInput;
-  input.setAttribute("aria-invalid", "true");
-  errorElements[field].textContent = message;
-}
-
-function validateForm() {
-  clearErrors();
-  let valid = true;
-  const name = nameInput.value.trim();
-  const email = normalizeEmail(emailInput.value);
-
-  if (name.length < 2) {
-    setFieldError("name", "Informe seu nome com pelo menos 2 caracteres.");
-    valid = false;
-  }
-  if (!isValidEmail(email)) {
-    setFieldError("email", "Informe um endereço de e-mail válido.");
-    valid = false;
-  }
-  if (!consentInput.checked) {
-    setFieldError("consent", "Você precisa concordar para liberar o material.");
-    valid = false;
-  }
-  return valid;
-}
-
 function setLoading(loading) {
+  if (!submitButton) return;
+
   submitButton.classList.toggle("loading", loading);
   submitButton.disabled = loading;
   submitButton.setAttribute("aria-busy", String(loading));
-  submitButton.querySelector(".button-label").textContent = loading ? "Liberando seu acesso..." : "Quero baixar o e-book grátis";
+
+  const label = submitButton.querySelector(".button-label");
+  if (label) {
+    label.textContent = loading
+      ? "Enviando e liberando acesso..."
+      : "Quero baixar o e-book grátis";
+  }
 }
 
 function showSuccess() {
-  const safeName = nameInput.value.trim().split(/\s+/)[0] || "leitor";
-  firstName.textContent = safeName;
+  if (!formContent || !successState) return;
+
+  const storedName = sessionStorage.getItem("ebookLeadFirstName");
+  if (firstName) {
+    firstName.textContent = storedName || "leitor";
+  }
+
   formContent.hidden = true;
   successState.hidden = false;
-  successState.focus?.();
-  document.querySelector("#formulario").scrollIntoView({ behavior: "smooth", block: "center" });
+  successState.setAttribute("tabindex", "-1");
+  successState.focus({ preventScroll: true });
+
+  const formSection = document.querySelector("#formulario");
+  formSection?.scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
-async function saveLead(payload) {
-  const response = await fetch(`${CONFIG.supabaseUrl}/rest/v1/${CONFIG.table}`, {
-    method: "POST",
-    headers: {
-      apikey: CONFIG.supabasePublishableKey,
-      "Content-Type": "application/json",
-      Prefer: "return=minimal",
-    },
-    body: JSON.stringify(payload),
-  });
+function clearSuccessParameter() {
+  const url = new URL(window.location.href);
+  if (!url.searchParams.has("sucesso")) return;
 
-  if (response.ok) return { status: "created" };
-
-  let details = {};
-  try { details = await response.json(); } catch { /* resposta sem JSON */ }
-
-  if (response.status === 409 || details.code === "23505") {
-    return { status: "duplicate" };
-  }
-
-  const backendMessage = details.message || details.error_description || details.hint || "Erro desconhecido";
-  throw new Error(`Supabase ${response.status}: ${backendMessage}`);
+  url.searchParams.delete("sucesso");
+  window.history.replaceState({}, document.title, `${url.pathname}${url.search}${url.hash}`);
 }
 
-form.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  if (!validateForm()) return;
+function displayFormAgain() {
+  successState.hidden = true;
+  successState.removeAttribute("tabindex");
+  formContent.hidden = false;
+  form?.reset();
+  sessionStorage.removeItem("ebookLeadFirstName");
+  nameInput?.focus();
+}
 
-  setLoading(true);
-  try {
-    const result = await saveLead({
-      name: nameInput.value.trim(),
-      email: normalizeEmail(emailInput.value),
-      consent: true,
-    });
+if (form) {
+  form.addEventListener("submit", (event) => {
+    formMessage.textContent = "";
+    formMessage.className = "form-message";
 
-    if (result.status === "duplicate") {
-      formMessage.textContent = "Este e-mail já estava cadastrado. O download foi liberado novamente.";
-      formMessage.className = "form-message info";
-      await new Promise((resolve) => setTimeout(resolve, 550));
+    if (!form.checkValidity()) {
+      event.preventDefault();
+      form.reportValidity();
+      return;
     }
 
-    showSuccess();
-  } catch (error) {
-    console.error(error);
-    const technicalMessage = error instanceof Error ? error.message : String(error);
-    formMessage.textContent = `Não foi possível concluir o cadastro. ${technicalMessage}`;
-    formMessage.className = "form-message error";
-  } finally {
-    setLoading(false);
-  }
-});
+    const rawName = nameInput?.value.trim() || "";
+    const email = normalizeEmail(emailInput?.value || "");
 
-[nameInput, emailInput].forEach((input) => {
-  input.addEventListener("input", () => {
-    input.removeAttribute("aria-invalid");
-    const key = input === nameInput ? "name" : "email";
-    errorElements[key].textContent = "";
+    if (rawName.length < 2 || !email || !consentInput?.checked) {
+      event.preventDefault();
+      formMessage.textContent = "Revise os campos obrigatórios antes de continuar.";
+      formMessage.className = "form-message error";
+      return;
+    }
+
+    sessionStorage.setItem("ebookLeadFirstName", rawName.split(/\s+/)[0]);
+    sessionStorage.setItem("ebookLeadEmail", email);
+    setLoading(true);
+    // O envio segue normalmente para o FormSubmit. Não usamos AJAX porque
+    // a resposta automática por e-mail depende de um envio POST tradicional.
   });
-});
-consentInput.addEventListener("change", () => {
-  consentInput.removeAttribute("aria-invalid");
-  errorElements.consent.textContent = "";
-});
+}
 
-restartButton.addEventListener("click", () => {
-  form.reset();
-  clearErrors();
-  successState.hidden = true;
-  formContent.hidden = false;
-  nameInput.focus();
-});
+restartButton?.addEventListener("click", displayFormAgain);
 
-document.querySelector("#current-year").textContent = String(new Date().getFullYear());
+const params = new URLSearchParams(window.location.search);
+if (params.get("sucesso") === "1") {
+  showSuccess();
+  clearSuccessParameter();
+}
+
+const currentYear = document.querySelector("#current-year");
+if (currentYear) {
+  currentYear.textContent = String(new Date().getFullYear());
+}
 
 document.querySelectorAll("[data-modal]").forEach((button) => {
-  button.addEventListener("click", () => document.querySelector(`#${button.dataset.modal}`).showModal());
+  button.addEventListener("click", () => {
+    const modal = document.querySelector(`#${button.dataset.modal}`);
+    if (modal instanceof HTMLDialogElement) {
+      modal.showModal();
+    }
+  });
 });
 
 document.querySelectorAll(".legal-modal").forEach((modal) => {
-  modal.querySelector(".modal-close").addEventListener("click", () => modal.close());
+  const closeButton = modal.querySelector(".modal-close");
+  closeButton?.addEventListener("click", () => modal.close());
+
   modal.addEventListener("click", (event) => {
-    if (event.target === modal) modal.close();
+    if (event.target === modal) {
+      modal.close();
+    }
   });
 });
