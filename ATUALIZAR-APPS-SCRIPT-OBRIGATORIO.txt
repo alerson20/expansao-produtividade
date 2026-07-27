@@ -1,0 +1,44 @@
+CORREÇÃO DEFINITIVA — FAÇA NESTA ORDEM
+
+1) GOOGLE APPS SCRIPT
+- Abra a planilha Leads Ebook.
+- Extensões > Apps Script.
+- Abra Código.gs.
+- Apague tudo e cole o conteúdo de apps-script/Code.gs desta pasta.
+- Salve.
+- Selecione a função configurar e clique em Executar.
+- Confirme que a execução terminou sem erro.
+
+2) ATUALIZE A IMPLANTAÇÃO (ETAPA ESSENCIAL)
+- Clique em Implantar > Gerenciar implantações.
+- Clique no lápis da implantação App da Web.
+- Em Versão, escolha Nova versão.
+- Executar como: Eu.
+- Quem pode acessar: Qualquer pessoa.
+- Clique em Implantar.
+- Copie a URL do app da Web terminada em /exec.
+
+IMPORTANTE:
+Apenas salvar Código.gs NÃO atualiza a implantação existente.
+É obrigatório selecionar NOVA VERSÃO e implantar novamente.
+
+3) SITE
+- Abra config.js.
+- Troque COLE_AQUI_A_URL_TERMINADA_EM_EXEC pela URL /exec copiada.
+- Não altere script.js.
+
+4) TESTE LOCAL
+npm.cmd install
+npm.cmd run dev
+
+5) PUBLICAÇÃO
+npm.cmd run build
+git add .
+git commit -m "Corrige envio para Planilhas e Gmail"
+git push
+
+6) TESTE PUBLICADO
+- Aguarde o GitHub Actions ficar verde.
+- Abra o site em janela anônima.
+- Faça um cadastro com e-mail real.
+- Confira: mensagem de sucesso, nova linha na planilha e e-mail recebido.

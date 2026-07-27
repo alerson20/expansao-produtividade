@@ -15,3 +15,8 @@ CONFIGURAR-EMAIL-GOOGLE.txt
 
 Depois utilize:
 COMANDOS-PARA-ATUALIZAR-GITHUB.txt
+
+CORREÇÃO DO FORMULÁRIO
+Consulte ATUALIZAR-APPS-SCRIPT-OBRIGATORIO.txt.
+A implantação do Google Apps Script precisa ser atualizada para uma NOVA VERSÃO após trocar o Código.gs.
+A URL /exec deve ser colocada apenas em config.js.

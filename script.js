@@ -1,4 +1,5 @@
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzjDXNjvce7VUQUknaK8O_-a2WBfWm3zf36tgnvfAU-Dr_l4xa5YVz0A0Wkha32TGm9/exec";
+const CONFIG = window.EBOOK_CONFIG || {};
+const APPS_SCRIPT_URL = String(CONFIG.appsScriptUrl || "").trim();
 
 const form = document.querySelector("#lead-form");
 const nameInput = document.querySelector("#name");
@@ -17,11 +18,13 @@ let submissionInProgress = false;
 let submissionTimeout = null;
 
 function normalizeEmail(value) {
-  return value.trim().toLowerCase();
+  return String(value || "").trim().toLowerCase();
 }
 
 function isConfigured() {
-  return APPS_SCRIPT_URL.startsWith("https://script.google.com/macros/s/");
+  return /^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec(?:\?.*)?$/.test(
+    APPS_SCRIPT_URL,
+  );
 }
 
 function setLoading(loading) {
@@ -37,11 +40,19 @@ function setLoading(loading) {
   }
 }
 
+function clearMessage() {
+  if (!formMessage) return;
+  formMessage.textContent = "";
+  formMessage.className = "form-message";
+}
+
 function showSuccess() {
   if (!formContent || !successState) return;
+
   clearTimeout(submissionTimeout);
   submissionInProgress = false;
   setLoading(false);
+  clearMessage();
 
   const storedName = sessionStorage.getItem("ebookLeadFirstName");
   if (firstName) firstName.textContent = storedName || "leitor";
@@ -50,7 +61,9 @@ function showSuccess() {
   successState.hidden = false;
   successState.setAttribute("tabindex", "-1");
   successState.focus({ preventScroll: true });
-  document.querySelector("#formulario")?.scrollIntoView({ behavior: "smooth", block: "center" });
+  document
+    .querySelector("#formulario")
+    ?.scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
 function showError(message) {
@@ -63,27 +76,44 @@ function showError(message) {
 }
 
 function displayFormAgain() {
+  if (!successState || !formContent) return;
   successState.hidden = true;
   successState.removeAttribute("tabindex");
   formContent.hidden = false;
   form?.reset();
   sessionStorage.removeItem("ebookLeadFirstName");
   sessionStorage.removeItem("ebookLeadEmail");
+  clearMessage();
   nameInput?.focus();
 }
 
+function isTrustedAppsScriptOrigin(origin) {
+  try {
+    const { hostname, protocol } = new URL(origin);
+    if (protocol !== "https:") return false;
+    return (
+      hostname === "script.google.com" ||
+      hostname === "script.googleusercontent.com" ||
+      hostname.endsWith(".googleusercontent.com")
+    );
+  } catch {
+    return false;
+  }
+}
+
 if (form) {
-  if (isConfigured()) form.action = APPS_SCRIPT_URL;
+  if (isConfigured()) {
+    form.action = APPS_SCRIPT_URL;
+  }
 
   form.addEventListener("submit", (event) => {
-    if (formMessage) {
-      formMessage.textContent = "";
-      formMessage.className = "form-message";
-    }
+    clearMessage();
 
     if (!isConfigured()) {
       event.preventDefault();
-      showError("O envio de e-mail ainda não foi configurado. Cole a URL do Google Apps Script no início do arquivo script.js.");
+      showError(
+        "O formulário ainda não foi conectado. Cole a URL /exec do Google Apps Script no arquivo config.js.",
+      );
       return;
     }
 
@@ -94,7 +124,7 @@ if (form) {
     }
 
     const rawName = nameInput?.value.trim() || "";
-    const email = normalizeEmail(emailInput?.value || "");
+    const email = normalizeEmail(emailInput?.value);
 
     if (rawName.length < 2 || !email || !consentInput?.checked) {
       event.preventDefault();
@@ -105,19 +135,47 @@ if (form) {
     if (submittedAtInput) submittedAtInput.value = new Date().toISOString();
     sessionStorage.setItem("ebookLeadFirstName", rawName.split(/\s+/)[0]);
     sessionStorage.setItem("ebookLeadEmail", email);
+
     submissionInProgress = true;
     setLoading(true);
 
     submissionTimeout = window.setTimeout(() => {
       if (submissionInProgress) {
-        showError("O servidor demorou para responder. Tente novamente em alguns instantes.");
+        showError(
+          "O envio não foi confirmado. Verifique se a implantação do Apps Script está como App da Web, executando como você e acessível a qualquer pessoa.",
+        );
       }
-    }, 20000);
+    }, 30000);
   });
 }
 
+window.addEventListener("message", (event) => {
+  if (!submissionInProgress || !isTrustedAppsScriptOrigin(event.origin)) return;
+
+  const payload = event.data;
+  if (!payload || payload.source !== "ebook-apps-script") return;
+
+  if (payload.status === "ok" || payload.status === "duplicate") {
+    showSuccess();
+    return;
+  }
+
+  showError(
+    payload.message ||
+      "O Google recebeu o formulário, mas não conseguiu concluir o cadastro.",
+  );
+});
+
+// Diagnóstico de fallback: o iframe carregou, mas o Apps Script antigo não enviou postMessage.
 submitTarget?.addEventListener("load", () => {
-  if (submissionInProgress) showSuccess();
+  if (!submissionInProgress) return;
+  window.setTimeout(() => {
+    if (submissionInProgress) {
+      showError(
+        "O formulário chegou ao Google, mas a implantação está usando uma versão antiga do Código.gs. Atualize a implantação para uma nova versão.",
+      );
+    }
+  }, 2500);
 });
 
 restartButton?.addEventListener("click", displayFormAgain);
