@@ -1,5 +1,6 @@
-const CONFIG = window.EBOOK_CONFIG || {};
-const APPS_SCRIPT_URL = String(CONFIG.appsScriptUrl || "").trim();
+import { EBOOK_CONFIG } from "./config.js";
+
+const APPS_SCRIPT_URL = String(EBOOK_CONFIG.appsScriptUrl || "").trim();
 
 const form = document.querySelector("#lead-form");
 const nameInput = document.querySelector("#name");
@@ -12,8 +13,6 @@ const formContent = document.querySelector("#form-content");
 const successState = document.querySelector("#success-state");
 const firstName = document.querySelector("#first-name");
 const restartButton = document.querySelector("#restart-form");
-const submitTarget = document.querySelector("#email-submit-target");
-
 let submissionInProgress = false;
 let submissionTimeout = null;
 
@@ -164,18 +163,6 @@ window.addEventListener("message", (event) => {
     payload.message ||
       "O Google recebeu o formulário, mas não conseguiu concluir o cadastro.",
   );
-});
-
-// Diagnóstico de fallback: o iframe carregou, mas o Apps Script antigo não enviou postMessage.
-submitTarget?.addEventListener("load", () => {
-  if (!submissionInProgress) return;
-  window.setTimeout(() => {
-    if (submissionInProgress) {
-      showError(
-        "O formulário chegou ao Google, mas a implantação está usando uma versão antiga do Código.gs. Atualize a implantação para uma nova versão.",
-      );
-    }
-  }, 2500);
 });
 
 restartButton?.addEventListener("click", displayFormAgain);

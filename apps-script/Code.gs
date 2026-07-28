@@ -1,39 +1,32 @@
-const OWNER_EMAIL = "alersonbarbosa@gmail.com";
+const OWNER_EMAIL = "alersonbarbosa10@gmail.com";
 const EBOOK_URL =
   "https://alerson20.github.io/expansao-produtividade/assets/Expansao_da_Produtividade.pdf";
 const SHEET_NAME = "Leads";
+const RESEND_COOLDOWN_SECONDS = 15 * 60;
+const SEND_OWNER_NOTIFICATION = false;
 
 /**
  * Execute uma única vez no editor do Apps Script.
- * Cria a aba Leads, guarda o ID da planilha e testa o envio de e-mail.
+ * Cria a planilha/aba Leads, guarda o ID e testa o envio de e-mail.
  */
 function configurar() {
-  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  const properties = PropertiesService.getScriptProperties();
+  const existingId = properties.getProperty("SPREADSHEET_ID");
+  let spreadsheet;
 
-  if (!spreadsheet) {
-    throw new Error(
-      "Abra este projeto por Extensões → Apps Script dentro da Planilha Google.",
+  if (existingId) {
+    spreadsheet = SpreadsheetApp.openById(existingId);
+  } else {
+    spreadsheet = SpreadsheetApp.create(
+      "Leads - Expansão da Produtividade",
     );
+    properties.setProperty("SPREADSHEET_ID", spreadsheet.getId());
   }
 
-  PropertiesService.getScriptProperties().setProperty(
-    "SPREADSHEET_ID",
-    spreadsheet.getId(),
-  );
+  ensureSheet_(spreadsheet);
 
-  let sheet = spreadsheet.getSheetByName(SHEET_NAME);
-  if (!sheet) sheet = spreadsheet.insertSheet(SHEET_NAME);
-
-  if (sheet.getLastRow() === 0) {
-    sheet.appendRow([
-      "Data e hora",
-      "Nome",
-      "E-mail",
-      "Consentimento",
-      "Origem",
-      "Data enviada pelo site",
-    ]);
-    sheet.setFrozenRows(1);
+  if (MailApp.getRemainingDailyQuota() < 1) {
+    throw new Error("A cota diária de e-mail desta conta está esgotada.");
   }
 
   MailApp.sendEmail({
@@ -44,6 +37,24 @@ function configurar() {
   });
 
   console.log("Configuração concluída.");
+}
+
+/**
+ * Aplica localidade, fuso e formato brasileiro à planilha existente.
+ * Pode ser executada novamente sem enviar e-mail.
+ */
+function formatarPlanilha() {
+  const spreadsheetId =
+    PropertiesService.getScriptProperties().getProperty("SPREADSHEET_ID");
+
+  if (!spreadsheetId) {
+    throw new Error("Execute primeiro a função configurar.");
+  }
+
+  const spreadsheet = SpreadsheetApp.openById(spreadsheetId);
+  const sheet = ensureSheet_(spreadsheet);
+  normalizeSubmittedDates_(sheet);
+  console.log("Planilha padronizada para pt-BR.");
 }
 
 function doGet() {
@@ -58,12 +69,6 @@ function doPost(e) {
     const name = cleanText_(params.name, 100);
     const email = cleanEmail_(params.email);
     const consent = String(params.consent || "").toLowerCase();
-    const honeypot = String(params.website || "").trim();
-
-    if (honeypot) {
-      return iframeResponse_("ok", "Cadastro concluído.");
-    }
-
     if (name.length < 2) throw new Error("Nome inválido.");
     if (!isValidEmail_(email)) throw new Error("E-mail inválido.");
     if (!["sim", "true", "on", "1"].includes(consent)) {
@@ -77,58 +82,132 @@ function doPost(e) {
       throw new Error("Execute primeiro a função configurar.");
     }
 
-    const spreadsheet = SpreadsheetApp.openById(spreadsheetId);
-    let sheet = spreadsheet.getSheetByName(SHEET_NAME);
+    const cache = CacheService.getScriptCache();
+    const cooldownKey = emailCacheKey_(email);
 
-    if (!sheet) {
-      sheet = spreadsheet.insertSheet(SHEET_NAME);
-      sheet.appendRow([
-        "Data e hora",
-        "Nome",
-        "E-mail",
-        "Consentimento",
-        "Origem",
-        "Data enviada pelo site",
-      ]);
-      sheet.setFrozenRows(1);
+    if (cache.get(cooldownKey)) {
+      return iframeResponse_(
+        "duplicate",
+        "O e-book já foi enviado recentemente. Confira também Spam e Promoções.",
+      );
     }
 
-    const duplicate = leadExists_(sheet, email);
+    const recipientsNeeded = SEND_OWNER_NOTIFICATION ? 2 : 1;
+    if (MailApp.getRemainingDailyQuota() < recipientsNeeded) {
+      throw new Error(
+        "O limite diário de envios foi atingido. Tente novamente mais tarde.",
+      );
+    }
 
-    if (!duplicate) {
-      const lock = LockService.getScriptLock();
-      lock.waitLock(10000);
-      try {
+    const lock = LockService.getScriptLock();
+    lock.waitLock(20000);
+
+    try {
+      // Repete a verificação dentro do lock para evitar dois envios simultâneos.
+      if (cache.get(cooldownKey)) {
+        return iframeResponse_(
+          "duplicate",
+          "O e-book já foi enviado recentemente. Confira também Spam e Promoções.",
+        );
+      }
+
+      const spreadsheet = SpreadsheetApp.openById(spreadsheetId);
+      const sheet = ensureSheet_(spreadsheet);
+      const duplicate = leadExists_(sheet, email);
+      let row = null;
+
+      if (!duplicate) {
         sheet.appendRow([
           new Date(),
           name,
           email,
           "Sim",
           cleanText_(params.source || "Landing page", 150),
-          cleanText_(params.submitted_at || "", 50),
+          parseSubmittedAt_(params.submitted_at),
+          "Pendente",
         ]);
-      } finally {
-        lock.releaseLock();
+        row = sheet.getLastRow();
       }
+
+      try {
+        sendEbookEmail_(name, email);
+        cache.put(cooldownKey, "1", RESEND_COOLDOWN_SECONDS);
+
+        if (row) {
+          sheet.getRange(row, 7).setValue("Enviado");
+        }
+
+        if (SEND_OWNER_NOTIFICATION) {
+          sendOwnerNotification_(name, email, params, duplicate);
+        }
+      } catch (sendError) {
+        if (row) {
+          sheet.getRange(row, 7).setValue("Falha no envio");
+        }
+        throw sendError;
+      }
+
+      return iframeResponse_(
+        duplicate ? "duplicate" : "ok",
+        duplicate
+          ? "O e-mail já estava cadastrado. Enviamos o e-book novamente."
+          : "Cadastro concluído. O e-book foi enviado.",
+      );
+    } finally {
+      lock.releaseLock();
     }
-
-    // Mesmo se o contato já existir, envia novamente o e-book.
-    sendEbookEmail_(name, email);
-    sendOwnerNotification_(name, email, params, duplicate);
-
-    return iframeResponse_(
-      duplicate ? "duplicate" : "ok",
-      duplicate
-        ? "O e-mail já estava cadastrado. Enviamos o e-book novamente."
-        : "Cadastro concluído. O e-book foi enviado.",
-    );
   } catch (error) {
     console.error(error);
     return iframeResponse_(
       "error",
-      error && error.message ? error.message : "Falha desconhecida.",
+      error && error.message ? error.message : "Não foi possível concluir o envio.",
     );
   }
+}
+
+function ensureSheet_(spreadsheet) {
+  spreadsheet.setSpreadsheetLocale("pt_BR");
+  spreadsheet.setSpreadsheetTimeZone("America/Sao_Paulo");
+
+  let sheet = spreadsheet.getSheetByName(SHEET_NAME);
+  if (!sheet) sheet = spreadsheet.insertSheet(SHEET_NAME);
+
+  const headers = [
+    "Data e hora",
+    "Nome",
+    "E-mail",
+    "Consentimento",
+    "Origem",
+    "Data enviada pelo site",
+    "Status do envio",
+  ];
+
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(headers);
+    sheet.setFrozenRows(1);
+  } else if (!sheet.getRange(1, 7).getValue()) {
+    sheet.getRange(1, 7).setValue(headers[6]);
+  }
+
+  sheet.getRange("A:A").setNumberFormat("dd/MM/yyyy HH:mm:ss");
+  sheet.getRange("F:F").setNumberFormat("dd/MM/yyyy HH:mm:ss");
+
+  return sheet;
+}
+
+function normalizeSubmittedDates_(sheet) {
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return;
+
+  const range = sheet.getRange(2, 6, lastRow - 1, 1);
+  const normalized = range.getValues().map((row) => {
+    if (row[0] instanceof Date || !row[0]) return [row[0]];
+    const parsed = parseSubmittedAt_(row[0]);
+    return [parsed || row[0]];
+  });
+
+  range.setValues(normalized);
+  range.setNumberFormat("dd/MM/yyyy HH:mm:ss");
 }
 
 function leadExists_(sheet, email) {
@@ -175,7 +254,9 @@ function sendEbookEmail_(name, email) {
 
 function sendOwnerNotification_(name, email, params, duplicate) {
   const body = [
-    duplicate ? "Cadastro repetido; o e-book foi reenviado." : "Novo cadastro na landing page.",
+    duplicate
+      ? "Cadastro repetido; o e-book foi reenviado."
+      : "Novo cadastro na landing page.",
     "",
     "Nome: " + name,
     "E-mail: " + email,
@@ -196,8 +277,8 @@ function sendOwnerNotification_(name, email, params, duplicate) {
 }
 
 /**
- * Retorna uma página mínima dentro do iframe e comunica o resultado ao site.
- * O ALLOWALL é necessário para a resposta poder carregar no iframe do GitHub Pages.
+ * O HtmlService do Apps Script fica dentro de frames do Google.
+ * Por isso a confirmação deve ir para window.top, que é a landing page.
  */
 function iframeResponse_(status, message) {
   const payload = JSON.stringify({
@@ -212,13 +293,28 @@ function iframeResponse_(status, message) {
       <body>
         <p>${escapeHtml_(message)}</p>
         <script>
-          window.parent.postMessage(${payload}, "*");
+          window.top.postMessage(${payload}, "*");
         <\/script>
       </body>
     </html>`;
 
   return HtmlService.createHtmlOutput(html).setXFrameOptionsMode(
     HtmlService.XFrameOptionsMode.ALLOWALL,
+  );
+}
+
+function emailCacheKey_(email) {
+  const digest = Utilities.computeDigest(
+    Utilities.DigestAlgorithm.SHA_256,
+    email,
+    Utilities.Charset.UTF_8,
+  );
+  return (
+    "sent_" +
+    digest
+      .map((byte) => (byte + 256).toString(16).slice(-2))
+      .join("")
+      .slice(0, 48)
   );
 }
 
@@ -231,6 +327,11 @@ function cleanText_(value, maxLength) {
 
 function cleanEmail_(value) {
   return String(value || "").trim().toLowerCase().slice(0, 254);
+}
+
+function parseSubmittedAt_(value) {
+  const parsed = new Date(String(value || ""));
+  return Number.isNaN(parsed.getTime()) ? "" : parsed;
 }
 
 function isValidEmail_(email) {
